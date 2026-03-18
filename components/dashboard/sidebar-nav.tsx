@@ -9,6 +9,9 @@ import {
   Hammer,
   Settings,
   Users,
+  Briefcase,
+  FileText,
+  Building2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -32,6 +35,26 @@ const sections: { title: string; items: NavItem[] }[] = [
         label: "Feature",
         href: "/dashboard/feature",
         icon: Hammer,
+      },
+    ],
+  },
+  {
+    title: "CRM",
+    items: [
+      {
+        label: "Clients",
+        href: "/dashboard/clients",
+        icon: Building2,
+      },
+      {
+        label: "Projects",
+        href: "/dashboard/projects",
+        icon: Briefcase,
+      },
+      {
+        label: "Invoices",
+        href: "/dashboard/invoices",
+        icon: FileText,
       },
     ],
   },
