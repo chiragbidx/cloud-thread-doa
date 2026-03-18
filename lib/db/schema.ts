@@ -1,7 +1,19 @@
 import "server-only";
 
-import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  integer,
+  decimal,
+  pgEnum,
+  index,
+  boolean,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+// --- Existing tables (users, teams, teamMembers, teamInvitations, authTokens, featureItems) remain unchanged ---
 
 export const users = pgTable("users", {
   id: text("id")
@@ -113,3 +125,120 @@ export const featureItems = pgTable("feature_items", {
     .notNull()
     .defaultNow(),
 });
+
+// ----- CRM TABLES: Clients -----
+export const clients = pgTable(
+  "clients",
+  {
+    id: text("id")
+      .notNull()
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    contactPerson: text("contact_person").notNull(),
+    contactEmail: text("contact_email").notNull(),
+    phone: text("phone"),
+    organization: text("organization"),
+    address: text("address"),
+    notes: text("notes"),
+    status: text("status").notNull().default("active"), // "active" | "inactive"
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("clients_team_idx").on(table.teamId),
+    index("clients_email_idx").on(table.contactEmail),
+  ]
+);
+
+// ----- CRM TABLES: Projects -----
+export const projects = pgTable(
+  "projects",
+  {
+    id: text("id")
+      .notNull()
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    projectManagerId: text("project_manager_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    status: text("status").notNull().default("planned"), // planned, active, completed, on_hold
+    description: text("description"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("projects_team_idx").on(table.teamId),
+    index("projects_client_idx").on(table.clientId),
+    index("projects_status_idx").on(table.status),
+  ]
+);
+
+// ----- CRM TABLES: Invoices -----
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: text("id")
+      .notNull()
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
+    invoiceNumber: integer("invoice_number").notNull(), // unique per team
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    projectId: text("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    issueDate: timestamp("issue_date", { withTimezone: true }).notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    status: text("status")
+      .notNull()
+      .default("draft"), // draft, sent, paid, overdue, void
+    notes: text("notes"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("invoices_team_invoice_number_idx").on(table.teamId, table.invoiceNumber),
+    index("invoices_client_idx").on(table.clientId),
+    index("invoices_project_idx").on(table.projectId),
+    index("invoices_status_idx").on(table.status),
+  ]
+);
